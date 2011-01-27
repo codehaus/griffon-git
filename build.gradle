@@ -36,11 +36,13 @@ configurations {
 	wrapper
     intTestCompile { extendsFrom testCompile }
     intTestRuntime { extendsFrom intTestCompile, testRuntime }
+    lombok
 }
 
 repositories {
     mavenCentral()
     mavenRepo name: 'SpringSource', urls: 'http://repository.springsource.com/maven/bundles/release'
+    mavenRepo name: 'Lombok', urls: 'http://projectlombok.org/mavenrepo'
     flatDir(dirs: file('lib/test'))
     flatDir(dirs: file('lib/wrapper'))
 }
@@ -92,6 +94,7 @@ dependencies {
 				":swingxbuilder:0.1.6-SNAPSHOT"
 
 	wrapper ":gradle-wrapper"
+    lombok "org.projectlombok:lombok:0.9.3"
 }
 
 sourceSets {
@@ -144,12 +147,12 @@ cliClasses.doLast {
         groovy.version=$groovyVersion""".stripIndent(8)
 }
 
-configure([compileGroovy, compileTestGroovy]) {
+configure(tasks.withType(GroovyCompile).all) {
     groovyOptions.fork(memoryInitialSize: '128M', memoryMaximumSize: '1G')
     groovyOptions.encoding = "UTF-8"
 }
 
-configure([compileJava, compileTestJava]) {
+configure(tasks.withType(Compile).all) {
     options.deprecation = true
     options.debug = true
 }

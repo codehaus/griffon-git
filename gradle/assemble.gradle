@@ -41,6 +41,7 @@ task jarRt(type: Jar) {
 }
 
 task jarCli(type: Jar) {
+    dependsOn { project(lombokPath).sourceSets.main.classes }
     mavenArtifact = true
     appendix = 'cli'
     metaInf {
@@ -52,6 +53,7 @@ task jarCli(type: Jar) {
         attributes 'Implementation-Title': 'griffon-cli'
     }
     from sourceSets.cli.classes
+    from "$buildDir/classes/lombok"
 }
 
 task jarScripts(type: Jar) {
@@ -125,6 +127,9 @@ task distBinary(type: Copy) {
         into 'lib'
     }
     from(configurations.scripts) {
+        into 'lib'
+    }
+    from(configurations.lombok) {
         into 'lib'
     }
     from(project.file('.')) {
