@@ -90,18 +90,7 @@ public class ThreadingASTTransformation implements ASTTransformation, Opcodes {
         Threading.Policy threadingPolicy = getThreadingPolicy(annotation);
         if(threadingPolicy == Threading.Policy.SKIP) return;
 
-        String threadingMethod = "executeOutside";
-        switch(threadingPolicy) {
-            case INSIDE_UITHREAD_SYNC:
-                threadingMethod = "executeSync";
-                break;
-            case INSIDE_UITHREAD_ASYNC:
-                threadingMethod = "executeAsync";
-                break;
-            case OUTSIDE_UITHREAD:
-            default:
-                break;
-        }
+        String threadingMethod = getThreadingMethod(threadingPolicy);
 
         if(node instanceof MethodNode) {
             handleMethodForInjection(node.getDeclaringClass(), (MethodNode) node, threadingMethod);
@@ -245,7 +234,7 @@ public class ThreadingASTTransformation implements ASTTransformation, Opcodes {
         return newClosure;
     }
 
-    private static boolean skipInjection(String actionName) {
+    public static boolean skipInjection(String actionName) {
         Map settings = GriffonCompilerContext.getFlattenedBuildSettings();
 
         String keyName = COMPILER_THREADING_KEY + "." + actionName;
