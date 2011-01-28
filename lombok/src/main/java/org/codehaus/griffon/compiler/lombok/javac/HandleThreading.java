@@ -2,6 +2,7 @@ package org.codehaus.griffon.compiler.lombok.javac;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import griffon.util.GriffonClassUtils;
 import griffon.util.Threading;
 
@@ -12,11 +13,6 @@ import lombok.javac.JavacNode;
 
 import static lombok.javac.handlers.JavacHandlerUtil.*;
 import static org.codehaus.griffon.compiler.lombok.javac.HandlerUtils.*;
-
-import com.sun.tools.javac.tree.JCTree.JCAnnotation;
-
-import javax.lang.model.element.Modifier;
-
 import static org.codehaus.griffon.ast.ThreadingASTTransformation.*;
 
 import org.slf4j.Logger;
@@ -68,8 +64,6 @@ public class HandleThreading implements JavacAnnotationHandler<Threading> {
             makeFinal(parameter);
         }
 
-        JCTree.JCClassDecl runnable = new JCTree.JCClassDecl();
-
         // 2. create Runnable anonymous inner class wrapping method body
 
         // 3. make call for UIThreadHelper.getInstance().$threadingMethod(runnable)
@@ -78,9 +72,8 @@ public class HandleThreading implements JavacAnnotationHandler<Threading> {
     }
 
     private void makeFinal(JCTree.JCVariableDecl parameter) {
-        int modifiers = toJavacModifier(parameter.getModifiers());
-        if (!java.lang.reflect.Modifier.isFinal(modifiers)) {
-            parameter.getModifiers().getFlags().add(Modifier.FINAL);
+        if ((parameter.mods.flags & Flags.FINAL) == 0) {
+            parameter.mods.flags |= Flags.FINAL;
         }
     }
 
