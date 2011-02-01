@@ -36,6 +36,10 @@ public class AstBuilder {
         return new MethodDefBuilder(context, methodName);
     }
 
+    public static VariableDefBuilder defVar(JavacNode context, String variableName) {
+        return new VariableDefBuilder(context, variableName);
+    }
+
     public static class ClassDefBuilder {
         private final JavacNode context;
         private final String className;
@@ -190,6 +194,51 @@ public class AstBuilder {
 
         public JCTree.JCMethodDecl build() {
             return context.getTreeMaker().MethodDef(modifiers, context.toName(methodName), returnType, typeParameters, params, throwables, body, null);
+        }
+    }
+
+    public static class VariableDefBuilder {
+        private final JavacNode context;
+        private final String variableName;
+
+        private JCTree.JCModifiers modifiers;
+        private JCTree.JCExpression varType;
+        private JCTree.JCExpression value;
+
+        public VariableDefBuilder(JavacNode context, String variableName) {
+            this.context = context;
+            this.variableName = variableName;
+
+            TreeMaker m = context.getTreeMaker();
+            modifiers = m.Modifiers(Flags.PUBLIC);
+            varType = HandlerUtils.chainDotsString(context.getTreeMaker(), context, Object.class.getName());
+        }
+
+        public VariableDefBuilder modifiers(long mods) {
+            modifiers = context.getTreeMaker().Modifiers(mods);
+            return this;
+        }
+
+        public VariableDefBuilder type(Class clazz) {
+            return type(clazz.getName());
+        }
+
+        public VariableDefBuilder type(String className) {
+            varType = HandlerUtils.chainDotsString(context.getTreeMaker(), context, className);
+            return this;
+        }
+
+        public VariableDefBuilder withValue(JCTree.JCExpression value) {
+            this.value = value;
+            return this;
+        }
+
+        public JCTree.JCVariableDecl $() {
+            return build();
+        }
+
+        public JCTree.JCVariableDecl build() {
+            return context.getTreeMaker().VarDef(modifiers, context.toName(variableName), varType, value);
         }
     }
 }
