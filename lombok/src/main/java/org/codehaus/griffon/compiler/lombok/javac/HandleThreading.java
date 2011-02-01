@@ -1,8 +1,26 @@
+/*
+ * Copyright 2009-2011 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.codehaus.griffon.compiler.lombok.javac;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCAnnotation;
+import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.util.List;
 import griffon.util.GriffonClassUtils;
 import griffon.util.Threading;
 
@@ -12,14 +30,17 @@ import lombok.javac.JavacAnnotationHandler;
 import lombok.javac.JavacNode;
 
 import static lombok.javac.handlers.JavacHandlerUtil.*;
+import static org.codehaus.griffon.compiler.lombok.javac.AstBuilder.defClass;
+import static org.codehaus.griffon.compiler.lombok.javac.AstBuilder.defMethod;
 import static org.codehaus.griffon.compiler.lombok.javac.HandlerUtils.*;
 import static org.codehaus.griffon.ast.ThreadingASTTransformation.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
+/**
+ * @author Andres Almiray
+ */
 public class HandleThreading implements JavacAnnotationHandler<Threading> {
     private static final Logger LOG = LoggerFactory.getLogger(HandleThreading.class);
 
@@ -33,6 +54,7 @@ public class HandleThreading implements JavacAnnotationHandler<Threading> {
         }
 
         JCTree.JCMethodDecl method = (JCTree.JCMethodDecl) methodNode.get();
+        TokenBuilder b = new TokenBuilder(methodNode.up());
 
         if ((method.mods.flags & Flags.ABSTRACT) != 0) {
             annotationNode.addError("@Threading is legal only on concrete methods.");
@@ -43,50 +65,56 @@ public class HandleThreading implements JavacAnnotationHandler<Threading> {
         if (threadingPolicy == Threading.Policy.SKIP) return true;
 
         String threadingMethod = getThreadingMethod(threadingPolicy);
-        handleMethodForInjection(methodNode.up().getName(), method, threadingMethod);
+        handleMethodForInjection(b, methodNode, method, threadingMethod);
 
-        return true;
+        return false;
     }
 
-    private void handleMethodForInjection(String declaringClassName, JCTree.JCMethodDecl method, String threadingMethod) {
+    private void handleMethodForInjection(TokenBuilder b, JavacNode methodNode, JCTree.JCMethodDecl method, String threadingMethod) {
         GriffonClassUtils.MethodDescriptor md = methodDescriptorFor(method);
-        System.err.println(md);
         if (GriffonClassUtils.isPlainMethod(md) &&
                 !GriffonClassUtils.isEventHandler(md) &&
-                !skipInjection(declaringClassName + "." + method.getName())) {
-            wrapStatements(declaringClassName, method, threadingMethod);
+                !skipInjection(b.context.getName() + "." + method.getName())) {
+            wrapStatements(b, methodNode, method, threadingMethod);
         }
     }
 
-    private void wrapStatements(String declaringClassName, JCTree.JCMethodDecl method, String threadingMethod) {
+    private void wrapStatements(TokenBuilder b, JavacNode methodNode, JCTree.JCMethodDecl method, String threadingMethod) {
+        // 0. abort if method is empty
+        if (method.getBody().getStatements().isEmpty()) return;
+
         // 1. make method parameters final
         for (JCTree.JCVariableDecl parameter : method.getParameters()) {
             makeFinal(parameter);
         }
 
         // 2. create Runnable anonymous inner class wrapping method body
+        TreeMaker m = methodNode.getTreeMaker();
 
-        // 3. make call for UIThreadHelper.getInstance().$threadingMethod(runnable)
+        JCTree.JCClassDecl runnableClass = defClass(methodNode, "ThreadingWrapper_" + methodNode.getName().toString())
+                .modifiers(0)
+                .implementing(Runnable.class)
+                .withMembers(
+                        defMethod(methodNode, "run").withBody(method.getBody().getStatements()).$()
+                ).$();
+        JCTree.JCExpression runnable = m.NewClass(null, NIL_EXPRESSION, b.type(Runnable.class), NIL_EXPRESSION, runnableClass);
+
+        // 3. create call for UIThreadHelper.getInstance().<threadingMethod>(runnable)
+        JCTree.JCExpression uiThreadHelperInstance = b.dotExpr("griffon.util.UIThreadHelper.getInstance");
+        JCTree.JCExpression uiThreadHelperInstanceCall = m.Apply(NIL_EXPRESSION, uiThreadHelperInstance, NIL_EXPRESSION);
+        JCTree.JCExpression a = b.call(m.Select(uiThreadHelperInstanceCall, b.name(threadingMethod)), List.<JCTree.JCExpression>of(runnable));
 
         // 4. substitute method body
+        method.body = m.Block(0, List.<JCTree.JCStatement>of(m.Exec(a)));
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Modified " + b.context.getName() + "." + method.getName() + "() - code wrapped with " + threadingMethod + "{}");
+        }
     }
 
     private void makeFinal(JCTree.JCVariableDecl parameter) {
         if ((parameter.mods.flags & Flags.FINAL) == 0) {
             parameter.mods.flags |= Flags.FINAL;
         }
-    }
-
-    private GriffonClassUtils.MethodDescriptor methodDescriptorFor(JCTree.JCMethodDecl method) {
-        List<JCTree.JCVariableDecl> parameters = method.getParameters();
-        String[] parameterTypes = new String[parameters.size()];
-
-        for (int i = 0; i < parameterTypes.length; i++) {
-            parameterTypes[i] = parameters.get(i).getType().type.toString();
-        }
-
-        int modifiers = toJavacModifier(method.getModifiers().getFlags());
-
-        return new GriffonClassUtils.MethodDescriptor(method.getName().toString(), parameterTypes, modifiers);
     }
 }

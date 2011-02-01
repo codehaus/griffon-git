@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.*;
 import org.apache.tools.ant.Project;
 import org.codehaus.gant.GantBinding;
 import org.codehaus.griffon.resolve.IvyDependencyManager;
@@ -91,6 +92,9 @@ public class GriffonScriptRunner {
      */
     public static void main(String[] args) {
         GriffonExceptionHandler.registerExceptionHandler();
+
+        setupLogging();
+
         StringBuilder allArgs = new StringBuilder("");
         for (String arg : args) {
             allArgs.append(" ").append(arg);
@@ -147,6 +151,20 @@ public class GriffonScriptRunner {
             t.printStackTrace(System.out);
             exitWithError(msg);
         }
+    }
+
+    private static void setupLogging() {
+        Logger root = Logger.getRootLogger();
+        root.setLevel(Level.ERROR);
+        ConsoleAppender console = new ConsoleAppender(new PatternLayout("%d [%t] %-5p [%-10.60c] - %m%n"), "System.out");
+        console.setName("stdout");
+        console.activateOptions();
+        root.addAppender(console);
+
+        Logger org_codehaus_griffon = Logger.getLogger("org.codehaus.griffon");
+        org_codehaus_griffon.setLevel(Level.ERROR);
+        org_codehaus_griffon.setAdditivity(false);
+        org_codehaus_griffon.addAppender(console);
     }
 
     private static void exitWithError(String error) {
@@ -613,7 +631,7 @@ public class GriffonScriptRunner {
             for (File script : allScripts) {
                 names.add(script.getName().substring(0, script.getName().length() - 7));
             }
-            List<String> mostSimilar = CosineSimilarity.mostSimilar(scriptName, names);
+            List<String> mostSimilar = CosineSimilarity.mostSimilar(scriptName, names, 0);
             if (mostSimilar.isEmpty()) {
                 return null;
             }

@@ -36,6 +36,10 @@ import groovy.beans.Bindable
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.apache.log4j.Logger as Log4jLogger
+import org.apache.log4j.Level
+import org.apache.log4j.ConsoleAppender
+import org.apache.log4j.PatternLayout
 
 /**
  * Implements the basics for a skeleton GriffonApplication.<p>
@@ -91,7 +95,29 @@ class BaseGriffonApplication implements GriffonApplication {
         this.appDelegate = appDelegate
         ApplicationHolder.application = appDelegate
 
+        setupLogging()
+
         log = LoggerFactory.getLogger(appDelegate.class)
+    }
+
+    private final setupLogging() {
+        Log4jLogger root = Log4jLogger.getRootLogger()
+        root.setLevel(Level.ERROR)
+        ConsoleAppender console = new ConsoleAppender(new PatternLayout("%d [%t] %-5p [%-10.60c] - %m%n"), "System.out")
+        console.setName("stdout")
+        console.activateOptions()
+        root.addAppender(console)
+
+        def configureLogger = { String category, Level level = Level.INFO ->
+            Log4jLogger logger = Log4jLogger.getLogger(category)
+            logger.level = level
+            logger.additivity = false
+            logger.addAppender console
+        }
+
+        configureLogger('griffon.app')
+        configureLogger('griffon')
+        configureLogger('org.codehaus.griffon', Level.ERROR)
     }
 
     Map<String, ?> getAddons() {
