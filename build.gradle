@@ -93,6 +93,7 @@ dependencies {
 
 	wrapper ":gradle-wrapper"
     lombok "org.projectlombok:lombok:0.9.3"
+    lombok files("${System.getenv('JAVA_HOME')}/lib/tools.jar")
 }
 
 sourceSets {

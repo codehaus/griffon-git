@@ -131,6 +131,7 @@ task distBinary(type: Copy) {
     }
     from(configurations.lombok) {
         into 'lib'
+        exclude 'tools.jar'
     }
     from(project.file('.')) {
         include 'LICENSE'
