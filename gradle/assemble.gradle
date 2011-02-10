@@ -163,11 +163,15 @@ task distSource(type: Copy) {
     destinationDir = "$buildDir/distributions/source" as File
     from(project.file('.')) {
         exclude 'build'
+        exclude 'lombok/build'
         exclude '**/.git*'
         exclude '.git*'
         exclude '.gradle*'
         exclude 'clover.license'
         exclude 'cobertura.ser'
+        exclude '**/*.ipr'
+        exclude '**/*.iws'
+        exclude '**/*.iml'
     }
 }
 
@@ -175,6 +179,7 @@ task zipBinary(type: Zip) {
     description = "Zips the binary distribution."
     dependsOn { distBinary }
     classifier = 'bin'
+    into "griffon-$version"
     from("$buildDir/distributions/binary") {
         exclude 'bin'
     }
@@ -188,6 +193,7 @@ task zipSource(type: Zip) {
     description = "Zips the source distribution."
     dependsOn { distSource }
     classifier = 'src'
+    into "griffon-$version"
     from "$buildDir/distributions/source"
 }
 
@@ -196,6 +202,7 @@ task tarBinary(type: Tar) {
     dependsOn { distBinary }
     compression = Compression.GZIP
     classifier = 'bin'
+    into "griffon-$version"
     from("$buildDir/distributions/binary") {
         exclude 'bin'
     }
@@ -210,6 +217,7 @@ task tarSource(type: Tar) {
     dependsOn { distSource }
     compression = Compression.GZIP
     classifier = 'src'
+    into "griffon-$version"
     from "$buildDir/distributions/source"
 }
 
