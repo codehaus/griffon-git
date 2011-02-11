@@ -26,6 +26,8 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import griffon.util.GriffonClassUtils;
 import lombok.Lombok;
+import lombok.core.AST;
+import lombok.javac.Javac;
 import lombok.javac.JavacNode;
 
 import javax.lang.model.element.Modifier;
@@ -53,6 +55,46 @@ public class HandlerUtils {
         int modifiers = toJavacModifier(method.getModifiers().getFlags());
 
         return new GriffonClassUtils.MethodDescriptor(method.getName().toString(), parameterTypes, modifiers);
+    }
+
+    public static boolean hasAnnotation(JavacNode node, Class annotationClass) {
+        for (JavacNode child : node.down()) {
+            if (child.getKind() == AST.Kind.ANNOTATION) {
+                if (Javac.annotationTypeMatches(annotationClass, child)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isInstanceField(JavacNode field) {
+        if (field.getKind() != AST.Kind.FIELD) return false;
+        JCTree.JCVariableDecl fieldDecl = (JCTree.JCVariableDecl) field.get();
+        //Skip fields that start with $
+        if (fieldDecl.name.toString().startsWith("$")) return false;
+        //Skip static fields.
+        if ((fieldDecl.mods.flags & Flags.STATIC) != 0) return false;
+        return true;
+    }
+
+    public static JavacNode findMethod(String methodName, JavacNode node) {
+        while (node != null && !(node.get() instanceof JCTree.JCClassDecl)) {
+            node = node.up();
+        }
+
+        if (node != null && node.get() instanceof JCTree.JCClassDecl) {
+            for (JCTree def : ((JCTree.JCClassDecl) node.get()).defs) {
+                if (def instanceof JCTree.JCMethodDecl) {
+                    String name = ((JCTree.JCMethodDecl) def).name.toString();
+                    if (name.equals(methodName)) {
+                        return node.getNodeFor(def);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     public static int toJavacModifier(JCTree.JCModifiers modifiers) {

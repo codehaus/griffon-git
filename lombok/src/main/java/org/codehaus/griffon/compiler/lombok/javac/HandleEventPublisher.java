@@ -100,21 +100,21 @@ public class HandleEventPublisher implements JavacAnnotationHandler<EventPublish
         ListBuffer<JCTree.JCVariableDecl> params = new ListBuffer<JCTree.JCVariableDecl>();
         ListBuffer<JCTree.JCExpression> args = new ListBuffer<JCTree.JCExpression>();
 
-        JCTree.JCVariableDecl param = b.param(Flags.FINAL, Object.class, "listener");
+        JCTree.JCVariableDecl param = b.param(0, Object.class, "listener");
         params.append(param);
         args.append(m.Ident(param.getName()));
-        JCTree.JCStatement addListenerCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(methodName)), toList(args)));
-        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(addListenerCall).build());
+        JCTree.JCStatement methodCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(methodName)), toList(args)));
+        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(methodCall).build());
 
         params = new ListBuffer<JCTree.JCVariableDecl>();
         args = new ListBuffer<JCTree.JCExpression>();
-        param = b.param(Flags.FINAL, String.class, "name");
+        param = b.param(0, String.class, "name");
         params.append(param);
         args.append(m.Ident(param.getName()));
-        param = b.param(Flags.FINAL, Closure.class, "listener");
+        param = b.param(0, Closure.class, "listener");
         params.append(param);
-        addListenerCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(methodName)), toList(args)));
-        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(addListenerCall).build());
+        methodCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(methodName)), toList(args)));
+        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(methodCall).build());
     }
 
     private void injectEventPublisherMethod(JavacNode typeNode, JavacNode eventRouterField, String methodName, String routerMethodName, TokenBuilder b) {
@@ -123,22 +123,22 @@ public class HandleEventPublisher implements JavacAnnotationHandler<EventPublish
         ListBuffer<JCTree.JCVariableDecl> params = new ListBuffer<JCTree.JCVariableDecl>();
         ListBuffer<JCTree.JCExpression> args = new ListBuffer<JCTree.JCExpression>();
 
-        JCTree.JCVariableDecl param = b.param(Flags.FINAL, String.class, "name");
+        JCTree.JCVariableDecl param = b.param(0, String.class, "name");
         params.append(param);
         args.append(m.Ident(param.getName()));
-        JCTree.JCStatement addListenerCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(routerMethodName)), toList(args)));
-        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(addListenerCall).build());
+        JCTree.JCStatement methodCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(routerMethodName)), toList(args)));
+        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(methodCall).build());
 
         params = new ListBuffer<JCTree.JCVariableDecl>();
         args = new ListBuffer<JCTree.JCExpression>();
-        param = b.param(Flags.FINAL, String.class, "name");
+        param = b.param(0, String.class, "name");
         params.append(param);
         args.append(m.Ident(param.getName()));
-        param = b.param(Flags.FINAL, java.util.List.class, "listener");
+        param = b.param(0, java.util.List.class, "listener");
         params.append(param);
         args.append(m.Ident(param.getName()));
-        addListenerCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(routerMethodName)), toList(args)));
-        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(addListenerCall).build());
+        methodCall = m.Exec(m.Apply(NIL_EXPRESSION, m.Select(readField(eventRouterField), b.name(routerMethodName)), toList(args)));
+        injectMethod(typeNode, defMethod(typeNode, methodName).withParams(params).withBody(methodCall).build());
     }
 
     private JavacNode createEventRouterField(JavacNode typeNode, TokenBuilder b) {
