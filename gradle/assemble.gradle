@@ -120,20 +120,16 @@ task distBinary(type: Copy) {
     from('src/main/scripts') {
         into 'scripts'
     }
-    from(configurations.rt) {
-        into 'lib'
-    }
-    from(configurations.cli) {
-        into 'lib'
-    }
-    from(configurations.scripts) {
-        into 'lib'
-    }
+	into('lib'){
+		from configurations.rt
+		from configurations.scripts
+		from configurations.cli
+	}
     from(configurations.lombok) {
         into 'lib'
         exclude 'tools.jar'
     }
-    from(project.file('.')) {
+    from('.') {
         include 'LICENSE'
         include 'INSTALL'
         include 'README'
@@ -159,9 +155,8 @@ task distBinary(type: Copy) {
     }
 }
 
-task distSource(type: Copy) {
-    destinationDir = "$buildDir/distributions/source" as File
-    from(project.file('.')) {
+distSourceSpec = copySpec{
+    from('.') {
         exclude 'build'
         exclude 'lombok/build'
         exclude '**/.git*'
@@ -172,7 +167,7 @@ task distSource(type: Copy) {
         exclude '**/*.ipr'
         exclude '**/*.iws'
         exclude '**/*.iml'
-    }
+    }   
 }
 
 task zipBinary(type: Zip) {
@@ -189,12 +184,11 @@ task zipBinary(type: Zip) {
     }
 }
 
-task zipSource(type: Zip) {
+task zipSource(type: Zip){
     description = "Zips the source distribution."
-    dependsOn { distSource }
+    with distSourceSpec
     classifier = 'src'
     into "griffon-$version"
-    from "$buildDir/distributions/source"
 }
 
 task tarBinary(type: Tar) {
@@ -214,11 +208,10 @@ task tarBinary(type: Tar) {
 
 task tarSource(type: Tar) {
     description = "Tars the source distribution."
-    dependsOn { distSource }
-    compression = Compression.GZIP
+    with distSourceSpec
     classifier = 'src'
-    into "griffon-$version"
-    from "$buildDir/distributions/source"
+    into "griffon-$version"  
+    compression = Compression.GZIP
 }
 
 task griffonHome

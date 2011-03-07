@@ -129,12 +129,17 @@ class BaseGriffonApplication implements GriffonApplication {
     }
 
     Class getAppConfigClass() {
-        return getClass().classLoader.loadClass('Application')
+        try {
+            return getClass().classLoader.loadClass(GriffonApplication.Configuration.APPLICATION.name)
+        } catch(ignored) {
+           // ignore - might be null if properties file is preferred
+        }
+        return null
     }
 
     Class getConfigClass() {
         try{
-           return getClass().classLoader.loadClass('Config')
+           return getClass().classLoader.loadClass(GriffonApplication.Configuration.CONFIG.name)
         } catch(ignored) {
            // ignore - no additional config available
         }
@@ -142,12 +147,17 @@ class BaseGriffonApplication implements GriffonApplication {
     }
 
     Class getBuilderClass() {
-        return getClass().classLoader.loadClass('Builder')
+        try {
+            return getClass().classLoader.loadClass(GriffonApplication.Configuration.BUILDER.name)
+        } catch(ignored) {
+           // ignore - might be null if properties file is preferred
+        }
+        return null
     }
 
     Class getEventsClass() {
         try{
-           return getClass().classLoader.loadClass('Events')
+           return getClass().classLoader.loadClass(GriffonApplication.Configuration.EVENTS.name)
         } catch(ignored) {
            // ignore - no global event handler will be used
         }
@@ -164,25 +174,27 @@ class BaseGriffonApplication implements GriffonApplication {
         if(phase != ApplicationPhase.STARTUP) return
 
         phase = ApplicationPhase.READY
-        event('ReadyStart',[appDelegate])
-        GriffonApplicationHelper.runScriptInsideUIThread('Ready', appDelegate)
-        event('ReadyEnd',[appDelegate])
+        event(GriffonApplication.Event.READY_START.name, [appDelegate])
+        GriffonApplicationHelper.runScriptInsideUIThread(GriffonApplication.Lifecycle.READY.name, appDelegate)
+        event(GriffonApplication.Event.READY_END.name, [appDelegate])
         phase = ApplicationPhase.MAIN
     }
 
     boolean canShutdown() {
-        event('ShutdownRequested',[appDelegate])
-        for(handler in shutdownHandlers) {
-            if(!handler.canShutdown(appDelegate)) {
-                event('ShutdownAborted',[appDelegate])
-                if(log.isDebugEnabled()) {
-                    try {
-                        log.debug("Shutdown aborted by $handler")
-                    }catch(UnsupportedOperationException uoe) {
-                        log.debug('Shutdown aborted by a handler')
+        event(GriffonApplication.Event.SHUTDOWN_REQUESTED.name, [appDelegate])
+        synchronized(shutdownLock) {
+            for(handler in shutdownHandlers) {
+                if(!handler.canShutdown(appDelegate)) {
+                    event(GriffonApplication.Event.SHUTDOWN_ABORTED.name, [appDelegate])
+                    if(log.isDebugEnabled()) {
+                        try {
+                            log.debug("Shutdown aborted by $handler")
+                        }catch(UnsupportedOperationException uoe) {
+                            log.debug('Shutdown aborted by a handler')
+                        }
                     }
+                    return false
                 }
-                return false
             }
         }
         return true
@@ -191,7 +203,7 @@ class BaseGriffonApplication implements GriffonApplication {
     boolean shutdown() {
         // avoids reentrant calls to shutdown()
         // once permission to quit has been granted
-        if(phase == ApplicationPhase.SHUTDOWN) return
+        if(phase == ApplicationPhase.SHUTDOWN) return false
 
         if(!canShutdown()) return false
         log.info('Shutdown is in process')
@@ -205,14 +217,16 @@ class BaseGriffonApplication implements GriffonApplication {
         // the ui thread
         log.debug('Shutdown stage 1: notify all event listeners')
         CountDownLatch latch = isUIThread() ? new CountDownLatch(1) : null
-        addApplicationEventListener('ShutdownStart') {latch?.countDown()}
-        event('ShutdownStart',[appDelegate])
+        addApplicationEventListener(GriffonApplication.Event.SHUTDOWN_START.name) {latch?.countDown()}
+        event(GriffonApplication.Event.SHUTDOWN_START.name, [appDelegate])
         latch?.await()
   
         // stage 2 - alert all shutdown handlers
         log.debug('Shutdown stage 2: notify all shutdown handlers')
-        for(handler in shutdownHandlers) {
-            handler.onShutdown(appDelegate)
+        synchronized(shutdownLock) {
+            for(handler in shutdownHandlers) {
+                handler.onShutdown(appDelegate)
+            }
         }
  
         // stage 3 - destroy all mvc groups
@@ -223,7 +237,7 @@ class BaseGriffonApplication implements GriffonApplication {
 
         // stage 4 - call shutdown script
         log.debug('Shutdown stage 4: execute Shutdown script')
-        GriffonApplicationHelper.runScriptInsideUIThread('Shutdown', appDelegate)
+        GriffonApplicationHelper.runScriptInsideUIThread(GriffonApplication.Lifecycle.SHUTDOWN.name, appDelegate)
 
         true
     }
@@ -232,13 +246,13 @@ class BaseGriffonApplication implements GriffonApplication {
         if(phase != ApplicationPhase.INITIALIZE) return
 
         phase = phase.STARTUP
-        event('StartupStart',[appDelegate])
+        event(GriffonApplication.Event.STARTUP_START.name, [appDelegate])
     
         if(log.infoEnabled) log.info("Initializing all startup groups: ${config.application.startupGroups}")
         config.application.startupGroups.each {group -> createMVCGroup(group) }
-        GriffonApplicationHelper.runScriptInsideUIThread('Startup', appDelegate)
+        GriffonApplicationHelper.runScriptInsideUIThread(GriffonApplication.Lifecycle.STARTUP.name, appDelegate)
 
-        event('StartupEnd',[appDelegate])
+        event(GriffonApplication.Event.STARTUP_END.name, [appDelegate])
     }
 
     void event(String eventName) {
