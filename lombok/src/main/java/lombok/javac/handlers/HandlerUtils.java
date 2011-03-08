@@ -14,28 +14,23 @@
  * limitations under the License.
  */
 
-package org.codehaus.griffon.compiler.lombok.javac;
+package lombok.javac.handlers;
 
 import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import griffon.util.GriffonClassUtils;
-import lombok.Lombok;
 import lombok.core.AST;
 import lombok.javac.Javac;
 import lombok.javac.JavacNode;
 
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.NoType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeVisitor;
 import java.util.Set;
 
+import static lombok.javac.handlers.JCNoType.voidType;
 import static lombok.javac.handlers.JavacHandlerUtil.chainDots;
 
 /**
@@ -43,6 +38,29 @@ import static lombok.javac.handlers.JavacHandlerUtil.chainDots;
  */
 public class HandlerUtils {
     public static final List<JCTree.JCExpression> NIL_EXPRESSION = List.<JCTree.JCExpression>nil();
+
+    public static JavacNode findTypeNodeFrom(JavacNode node) {
+        JavacNode n = node;
+        while (n != null && !isTypeDeclaration(n)) n = n.up();
+        if (!isTypeDeclaration(n)) return null;
+        return n;
+    }
+
+    public static boolean isTypeDeclaration(JavacNode node) {
+        return node != null && node.get() instanceof JCTree.JCClassDecl;
+    }
+
+    public static JCTree.JCExpression thisExpression(JavacNode typeNode) {
+        return chainDots(typeNode.getTreeMaker(), typeNode, "this");
+    }
+
+    public static List<JCTree.JCExpression> extractArgNames(List<JCTree.JCVariableDecl> params, TreeMaker m) {
+        ListBuffer<JCTree.JCExpression> args = new ListBuffer<JCTree.JCExpression>();
+        for (JCTree.JCVariableDecl param : params) {
+            args.append(m.Ident(param.getName()));
+        }
+        return toList(args);
+    }
 
     public static GriffonClassUtils.MethodDescriptor methodDescriptorFor(JCTree.JCMethodDecl method) {
         java.util.List<JCTree.JCVariableDecl> parameters = method.getParameters();
@@ -194,43 +212,6 @@ public class HandlerUtils {
         return collection == null ? com.sun.tools.javac.util.List.<T>nil() : collection.toList();
     }
 
-    public static class JCNoType extends Type implements NoType {
-        public JCNoType(int tag) {
-            super(tag, null);
-        }
-
-        @Override
-        public TypeKind getKind() {
-            if (tag == getCTCint(TypeTags.class, "VOID")) return TypeKind.VOID;
-            if (tag == getCTCint(TypeTags.class, "NONE")) return TypeKind.NONE;
-            throw new AssertionError("Unexpected tag: " + tag);
-        }
-
-        @Override
-        public <R, P> R accept(TypeVisitor<R, P> v, P p) {
-            return v.visitNoType(this, p);
-        }
-    }
-
-    /**
-     * Retrieves a compile time constant of type int from the specified class location.
-     * <p/>
-     * Solves the problem of compile time constant inlining, resulting in lombok having the wrong value
-     * (javac compiler changes private api constants from time to time)
-     *
-     * @param ctcLocation location of the compile time constant
-     * @param identifier  the name of the field of the compile time constant.
-     */
-    public static int getCTCint(Class<?> ctcLocation, String identifier) {
-        try {
-            return (Integer) ctcLocation.getField(identifier).get(null);
-        } catch (NoSuchFieldException e) {
-            throw Lombok.sneakyThrow(e);
-        } catch (IllegalAccessException e) {
-            throw Lombok.sneakyThrow(e);
-        }
-    }
-
     /**
      * In javac, dotted access of any kind, from {@code java.lang.String} to {@code var.methodName}
      * is represented by a fold-left of {@code Select} nodes with the leftmost string represented by
@@ -269,7 +250,7 @@ public class HandlerUtils {
         }
 
         public JCTree.JCExpression void_t() {
-            return context.getTreeMaker().Type(new JCNoType(getCTCint(TypeTags.class, "VOID")));
+            return context.getTreeMaker().Type(voidType());
         }
 
         public JCTree.JCVariableDecl param(int modifiers, Class clazz, String identifier) {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.codehaus.griffon.compiler.lombok.javac;
+package lombok.javac.handlers;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
@@ -23,20 +23,19 @@ import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.List;
 import griffon.util.GriffonClassUtils;
 import griffon.util.Threading;
-
 import lombok.core.AST.Kind;
 import lombok.core.AnnotationValues;
 import lombok.javac.JavacAnnotationHandler;
 import lombok.javac.JavacNode;
-
-import static lombok.javac.handlers.JavacHandlerUtil.*;
-import static org.codehaus.griffon.compiler.lombok.javac.AstBuilder.defClass;
-import static org.codehaus.griffon.compiler.lombok.javac.AstBuilder.defMethod;
-import static org.codehaus.griffon.compiler.lombok.javac.HandlerUtils.*;
-import static org.codehaus.griffon.ast.ThreadingASTTransformation.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static lombok.javac.handlers.AstBuilder.defClass;
+import static lombok.javac.handlers.AstBuilder.defMethod;
+import static lombok.javac.handlers.HandlerUtils.*;
+import static lombok.javac.handlers.JavacHandlerUtil.markAnnotationAsProcessed;
+import static org.codehaus.griffon.ast.ThreadingASTTransformation.getThreadingMethod;
+import static org.codehaus.griffon.ast.ThreadingASTTransformation.skipInjection;
 
 /**
  * @author Andres Almiray
@@ -91,21 +90,21 @@ public class HandleThreading implements JavacAnnotationHandler<Threading> {
         // 2. create Runnable anonymous inner class wrapping method body
         TreeMaker m = methodNode.getTreeMaker();
 
-        JCTree.JCClassDecl runnableClass = defClass(methodNode, "ThreadingWrapper_" + methodNode.getName().toString())
+        JCTree.JCClassDecl runnableClass = defClass("ThreadingWrapper_" + methodNode.getName().toString())
                 .modifiers(0)
                 .implementing(Runnable.class)
                 .withMembers(
-                        defMethod(methodNode, "run").withBody(method.getBody().getStatements()).$()
-                ).$();
+                        defMethod("run").withBody(method.getBody().getStatements()).$(methodNode)
+                ).$(methodNode);
         JCTree.JCExpression runnable = m.NewClass(null, NIL_EXPRESSION, b.type(Runnable.class), NIL_EXPRESSION, runnableClass);
 
         // 3. create call for UIThreadHelper.getInstance().<threadingMethod>(runnable)
         JCTree.JCExpression uiThreadHelperInstance = b.dotExpr("griffon.util.UIThreadHelper.getInstance");
         JCTree.JCExpression uiThreadHelperInstanceCall = m.Apply(NIL_EXPRESSION, uiThreadHelperInstance, NIL_EXPRESSION);
-        JCTree.JCExpression a = b.call(m.Select(uiThreadHelperInstanceCall, b.name(threadingMethod)), List.<JCTree.JCExpression>of(runnable));
+        JCTree.JCExpression call = b.call(m.Select(uiThreadHelperInstanceCall, b.name(threadingMethod)), List.<JCTree.JCExpression>of(runnable));
 
         // 4. substitute method body
-        method.body = m.Block(0, List.<JCTree.JCStatement>of(m.Exec(a)));
+        method.body = m.Block(0, List.<JCTree.JCStatement>of(m.Exec(call)));
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Modified " + b.context.getName() + "." + method.getName() + "() - code wrapped with " + threadingMethod + "{}");

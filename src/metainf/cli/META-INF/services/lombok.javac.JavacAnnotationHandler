@@ -1,2 +1,3 @@
-org.codehaus.griffon.compiler.lombok.javac.HandleThreading
-org.codehaus.griffon.compiler.lombok.javac.HandleEventPublisher
+lombok.javac.handlers.HandleThreading
+lombok.javac.handlers.HandleEventPublisher
+lombok.javac.handlers.HandleBindable

@@ -14,54 +14,55 @@
  * limitations under the License.
  */
 
-package org.codehaus.griffon.compiler.lombok.javac;
+package lombok.javac.handlers;
 
 import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import lombok.javac.JavacNode;
 
+import static lombok.javac.handlers.HandlerUtils.chainDotsString;
+import static lombok.javac.handlers.HandlerUtils.toList;
+import static lombok.javac.handlers.JCNoType.voidType;
+
 /**
  * @author Andres Almiray
  */
 public class AstBuilder {
-    public static ClassDefBuilder defClass(JavacNode context, String className) {
-        return new ClassDefBuilder(context, className);
+    public static ClassDefBuilder defClass(String className) {
+        return new ClassDefBuilder(className);
     }
 
-    public static MethodDefBuilder defMethod(JavacNode context, String methodName) {
-        return new MethodDefBuilder(context, methodName);
+    public static MethodDefBuilder defMethod(String methodName) {
+        return new MethodDefBuilder(methodName);
     }
 
-    public static VariableDefBuilder defVar(JavacNode context, String variableName) {
-        return new VariableDefBuilder(context, variableName);
+    public static VariableDefBuilder defVar(String variableName) {
+        return new VariableDefBuilder(variableName);
     }
 
     public static class ClassDefBuilder {
-        private final JavacNode context;
         private final String className;
 
-        private JCTree.JCModifiers modifiers;
+        private long modifiers;
         private List<JCTree.JCTypeParameter> typeParameters;
         private JCTree superClass;
-        private List<JCTree.JCExpression> interfaces;
+        private List<String> interfaces;
         private List<JCTree> members;
 
-        public ClassDefBuilder(JavacNode context, String className) {
-            this.context = context;
+        public ClassDefBuilder(String className) {
             this.className = className;
 
-            modifiers = context.getTreeMaker().Modifiers(Flags.PUBLIC);
+            modifiers = Flags.PUBLIC;
             typeParameters = List.nil();
             interfaces = List.nil();
             members = List.nil();
         }
 
         public ClassDefBuilder modifiers(long mods) {
-            modifiers = context.getTreeMaker().Modifiers(mods);
+            modifiers = mods;
             return this;
         }
 
@@ -71,22 +72,24 @@ public class AstBuilder {
         }
 
         public ClassDefBuilder implementing(Class... interfaces) {
-            ListBuffer<JCTree.JCExpression> types = new ListBuffer<JCTree.JCExpression>();
+            ListBuffer<String> types = new ListBuffer<String>();
             for (Class type : interfaces) {
-                types.append(HandlerUtils.chainDotsString(context.getTreeMaker(), context, type.getName()));
+                types.append(type.getName());
             }
-            return implementing(HandlerUtils.toList(types));
+            this.interfaces = toList(types);
+            return this;
         }
 
         public ClassDefBuilder implementing(String... interfaces) {
-            ListBuffer<JCTree.JCExpression> types = new ListBuffer<JCTree.JCExpression>();
+            ListBuffer<String> types = new ListBuffer<String>();
             for (String type : interfaces) {
-                types.append(HandlerUtils.chainDotsString(context.getTreeMaker(), context, type));
+                types.append(type);
             }
-            return implementing(HandlerUtils.toList(types));
+            this.interfaces = toList(types);
+            return this;
         }
 
-        public ClassDefBuilder implementing(List<JCTree.JCExpression> interfaces) {
+        public ClassDefBuilder implementing(List<String> interfaces) {
             this.interfaces = interfaces;
             return this;
         }
@@ -109,41 +112,51 @@ public class AstBuilder {
             return withMembers(HandlerUtils.toList(defs));
         }
 
-        public JCTree.JCClassDecl $() {
-            return build();
+        public JCTree.JCClassDecl $(JavacNode context) {
+            return build(context);
         }
 
-        public JCTree.JCClassDecl build() {
-            return context.getTreeMaker().ClassDef(modifiers, context.toName(className), typeParameters, superClass, interfaces, members);
+        public JCTree.JCClassDecl build(JavacNode context) {
+            TreeMaker m = context.getTreeMaker();
+
+            ListBuffer<JCTree.JCExpression> implemented = new ListBuffer<JCTree.JCExpression>();
+            for (String type : interfaces) {
+                implemented.append(HandlerUtils.chainDotsString(context.getTreeMaker(), context, type));
+            }
+
+            return context.getTreeMaker().ClassDef(
+                    m.Modifiers(modifiers),
+                    context.toName(className),
+                    typeParameters,
+                    superClass,
+                    toList(implemented),
+                    members);
         }
     }
 
     public static class MethodDefBuilder {
-        private final JavacNode context;
         private final String methodName;
 
-        private JCTree.JCModifiers modifiers;
-        private JCTree.JCExpression returnType;
+        private long modifiers;
+        private String returnType;
         private List<JCTree.JCTypeParameter> typeParameters;
         private List<JCTree.JCVariableDecl> params;
         private List<JCTree.JCExpression> throwables;
-        private JCTree.JCBlock body;
+        private List<JCTree.JCStatement> statements;
 
-        public MethodDefBuilder(JavacNode context, String methodName) {
-            this.context = context;
+        public MethodDefBuilder(String methodName) {
             this.methodName = methodName;
 
-            TreeMaker m = context.getTreeMaker();
-            modifiers = m.Modifiers(Flags.PUBLIC);
-            returnType = m.Type(new HandlerUtils.JCNoType(HandlerUtils.getCTCint(TypeTags.class, "VOID")));
+            modifiers = Flags.PUBLIC;
+            returnType = Void.TYPE.getName();
             typeParameters = List.nil();
             params = List.nil();
             throwables = List.nil();
-            body = m.Block(0, List.<JCTree.JCStatement>nil());
+            statements = List.<JCTree.JCStatement>nil();
         }
 
         public MethodDefBuilder modifiers(long mods) {
-            modifiers = context.getTreeMaker().Modifiers(mods);
+            modifiers = mods;
             return this;
         }
 
@@ -152,7 +165,7 @@ public class AstBuilder {
         }
 
         public MethodDefBuilder returning(String className) {
-            returnType = HandlerUtils.chainDotsString(context.getTreeMaker(), context, className);
+            returnType = className;
             return this;
         }
 
@@ -175,47 +188,57 @@ public class AstBuilder {
             return this;
         }
 
-        public MethodDefBuilder withBody(JCTree.JCBlock body) {
-            this.body = body;
-            return this;
-        }
-
         public MethodDefBuilder withBody(List<JCTree.JCStatement> statements) {
-            return withBody(context.getTreeMaker().Block(0, statements));
+            this.statements = statements;
+            return this;
         }
 
         public MethodDefBuilder withBody(JCTree.JCStatement statement) {
             return withBody(List.of(statement));
         }
 
-        public JCTree.JCMethodDecl $() {
-            return build();
+        public JCTree.JCMethodDecl $(JavacNode context) {
+            return build(context);
         }
 
-        public JCTree.JCMethodDecl build() {
-            return context.getTreeMaker().MethodDef(modifiers, context.toName(methodName), returnType, typeParameters, params, throwables, body, null);
+        public JCTree.JCMethodDecl build(JavacNode context) {
+            TreeMaker m = context.getTreeMaker();
+
+            JCTree.JCExpression returns = m.Type(voidType());
+            if (!returnType.equals(Void.TYPE.getName())) {
+                returns = chainDotsString(m, context, returnType);
+            }
+
+            return context.getTreeMaker().MethodDef(
+                    m.Modifiers(modifiers),
+                    context.toName(methodName),
+                    returns,
+                    typeParameters,
+                    params,
+                    throwables,
+                    m.Block(0, statements),
+                    null);
         }
     }
 
     public static class VariableDefBuilder {
-        private final JavacNode context;
         private final String variableName;
 
-        private JCTree.JCModifiers modifiers;
-        private JCTree.JCExpression varType;
+        private long modifiers;
+        private String varType;
+        private JCTree.JCExpression type;
         private JCTree.JCExpression value;
+        private List<JCTree.JCExpression> args;
 
-        public VariableDefBuilder(JavacNode context, String variableName) {
-            this.context = context;
+        public VariableDefBuilder(String variableName) {
             this.variableName = variableName;
 
-            TreeMaker m = context.getTreeMaker();
-            modifiers = m.Modifiers(Flags.PUBLIC);
-            varType = HandlerUtils.chainDotsString(context.getTreeMaker(), context, Object.class.getName());
+            modifiers = 0;
+            varType = Object.class.getName();
         }
 
         public VariableDefBuilder modifiers(long mods) {
-            modifiers = context.getTreeMaker().Modifiers(mods);
+            modifiers = mods;
             return this;
         }
 
@@ -224,7 +247,12 @@ public class AstBuilder {
         }
 
         public VariableDefBuilder type(String className) {
-            varType = HandlerUtils.chainDotsString(context.getTreeMaker(), context, className);
+            varType = className;
+            return this;
+        }
+
+        public VariableDefBuilder type(JCTree.JCExpression type) {
+            this.type = type;
             return this;
         }
 
@@ -233,12 +261,29 @@ public class AstBuilder {
             return this;
         }
 
-        public JCTree.JCVariableDecl $() {
-            return build();
+        public VariableDefBuilder withArgs(JCTree.JCExpression... args) {
+            this.args = List.from(args);
+            return this;
         }
 
-        public JCTree.JCVariableDecl build() {
-            return context.getTreeMaker().VarDef(modifiers, context.toName(variableName), varType, value);
+        public JCTree.JCVariableDecl $(JavacNode context) {
+            return build(context);
+        }
+
+        public JCTree.JCVariableDecl build(JavacNode context) {
+            TreeMaker m = context.getTreeMaker();
+
+            JCTree.JCExpression typeExpression = type != null ? type : chainDotsString(context.getTreeMaker(), context, varType);
+            JCTree.JCExpression initExpression = value;
+            if (value == null && args != null) {
+                initExpression = m.NewClass(null, null, typeExpression, args, null);
+            }
+
+            return context.getTreeMaker().VarDef(
+                    m.Modifiers(modifiers),
+                    context.toName(variableName),
+                    typeExpression,
+                    initExpression);
         }
     }
 }
