@@ -23,8 +23,8 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import lombok.javac.JavacNode;
 
-import static lombok.javac.handlers.HandlerUtils.chainDotsString;
 import static lombok.javac.handlers.HandlerUtils.toList;
+import static lombok.javac.handlers.HandlerUtils.makeType;
 import static lombok.javac.handlers.JCNoType.voidType;
 
 /**
@@ -206,7 +206,7 @@ public class AstBuilder {
 
             JCTree.JCExpression returns = m.Type(voidType());
             if (!returnType.equals(Void.TYPE.getName())) {
-                returns = chainDotsString(m, context, returnType);
+                returns = makeType(returnType, context);
             }
 
             return context.getTreeMaker().MethodDef(
@@ -273,7 +273,7 @@ public class AstBuilder {
         public JCTree.JCVariableDecl build(JavacNode context) {
             TreeMaker m = context.getTreeMaker();
 
-            JCTree.JCExpression typeExpression = type != null ? type : chainDotsString(context.getTreeMaker(), context, varType);
+            JCTree.JCExpression typeExpression = type != null ? type : makeType(varType, context);
             JCTree.JCExpression initExpression = value;
             if (value == null && args != null) {
                 initExpression = m.NewClass(null, null, typeExpression, args, null);

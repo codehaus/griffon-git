@@ -99,7 +99,7 @@ public class HandleBindable implements JavacAnnotationHandler<Bindable> {
         createPropertyChangeSupportField(typeNode);
         injectListenerManagementMethod("addPropertyChangeListener", typeNode);
         injectListenerManagementMethod("removePropertyChangeListener", typeNode);
-        //injectListenerQueryMethod(typeNode);
+        injectListenerQueryMethod(typeNode);
         injectFirePropertyChangeMethod(typeNode);
 
         if (LOG.isDebugEnabled()) LOG.debug("Modified " + typeNode.getName() + " as a Bindable class.");
@@ -222,9 +222,9 @@ public class HandleBindable implements JavacAnnotationHandler<Bindable> {
 
     private void createPropertyChangeSupportField(JavacNode typeNode) {
         injectField(typeNode, defVar(PROPERTY_SUPPORT_FIELD_NAME)
-                .modifiers(PRIVATE | FINAL)
+                .modifiers(PRIVATE)// | FINAL)
                 .type(PropertyChangeSupport.class)
-                .withArgs(thisExpression(typeNode))
+                //.withArgs(thisExpression(typeNode))
                 .$(typeNode));
     }
 

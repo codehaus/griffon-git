@@ -39,6 +39,17 @@ import static lombok.javac.handlers.JavacHandlerUtil.chainDots;
 public class HandlerUtils {
     public static final List<JCTree.JCExpression> NIL_EXPRESSION = List.<JCTree.JCExpression>nil();
 
+    public static JCTree.JCExpression makeType(String type, JavacNode node) {
+        TreeMaker maker = node.getTreeMaker();
+        if (type.startsWith("[L")) {
+            return maker.TypeArray(chainDotsString(maker, node, type.substring(2, type.length() - 1)));
+        } else if (type.startsWith("[")) {
+            return maker.TypeArray(chainDotsString(maker, node, type.substring(1, type.length() - 1)));
+        }
+        return chainDotsString(maker, node, type);
+
+    }
+
     public static JavacNode findTypeNodeFrom(JavacNode node) {
         JavacNode n = node;
         while (n != null && !isTypeDeclaration(n)) n = n.up();
