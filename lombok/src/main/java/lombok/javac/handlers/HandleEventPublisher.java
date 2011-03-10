@@ -74,8 +74,9 @@ public class HandleEventPublisher implements JavacAnnotationHandler<EventPublish
         createEventRouterField(typeNode);
         injectListenerManagementMethod(typeNode, "addEventListener");
         injectListenerManagementMethod(typeNode, "removeEventListener");
-        injectEventPublisherMethod(typeNode, "publishEventAsync", "publishAsync");
         injectEventPublisherMethod(typeNode, "publishEvent", "publish");
+        injectEventPublisherMethod(typeNode, "publishEventOutside", "publishOutside");
+        injectEventPublisherMethod(typeNode, "publishEventAsync", "publishAsync");
 
         if (LOG.isDebugEnabled()) LOG.debug("Modified " + typeNode.getName() + " as an EventPublisher.");
     }
